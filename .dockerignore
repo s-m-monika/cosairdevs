@@ -1,13 +1,24 @@
+# Virtual environment - never in image
 .venv/
+
+# Python bytecode
 __pycache__/
 *.pyc
 *.pyo
+
+# Git internals
 .git/
 .gitignore
-.dockerignore
+.gitattributes
+
+# Dev/test - not needed at runtime
 tests/
-scripts/
-*.md
+.pytest_cache/
+.coverage
+
+# Local env secrets - never in image
 .env
-*.json
-!requirements.txt
+
+# Editor
+.vscode/
+.idea/
