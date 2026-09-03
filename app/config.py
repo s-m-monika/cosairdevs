@@ -33,11 +33,14 @@ FIRESTORE_EMULATOR_HOST = os.environ.get("FIRESTORE_EMULATOR_HOST")
 PORT = int(os.environ.get("PORT", "8000"))
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
-# Comma-separated list of allowed origins, e.g.
-#   CORS_ALLOWED_ORIGINS=http://localhost:5173,https://my-frontend.run.app
+# Comma-separated list of allowed origins.
+# http://localhost:8080 and http://127.0.0.1:8080 allow a local frontend
+# running on port 8080 to call the Cloud Run backend without CORS errors.
+# Override at deployment time via the CORS_ALLOWED_ORIGINS env var, e.g.:
+#   CORS_ALLOWED_ORIGINS=https://my-frontend.run.app,http://localhost:8080
 _raw_origins = os.environ.get(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:5173",
+    "http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080",
 )
 CORS_ALLOWED_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
@@ -52,7 +55,7 @@ RISK_WEIGHTS = {
 
 HIGH_SEVERITY_THRESHOLD = 0.70
 
-# A transaction triggers VELOCITY_SPIKE when ≥ VELOCITY_THRESHOLD other
+# A transaction triggers VELOCITY_SPIKE when >= VELOCITY_THRESHOLD other
 # transactions for the same customer fall within VELOCITY_WINDOW_SECONDS.
 VELOCITY_WINDOW_SECONDS = 600
 VELOCITY_THRESHOLD      = 5
