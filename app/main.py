@@ -220,18 +220,19 @@ def get_investigation(alert_id: str) -> InvestigationContext:
 
 @app.get(
     "/transactions/all",
-    summary="List transactions (paginated)",
+    summary="List all transactions",
     description=(
-        "Returns transactions from the dataset, newest first. "
-        "The dataset has ~9,991 transactions, so results are PAGINATED. "
-        "Use `limit` (default 100, max 1000) and `offset` to page through. "
-        "Optionally filter by `customer_id`. "
-        "The response includes total count and pagination metadata."
+        "Returns ALL transactions from the dataset (~9,991), newest first. "
+        "Optional `limit`/`offset` are available for paging if you want them, "
+        "and `customer_id` filters to one customer. "
+        "By default there is NO limit — every transaction is returned. "
+        "NOTE: viewing all ~9,991 records via Swagger UI 'Try it out' can crash "
+        "the browser renderer; open the URL in a new browser tab or use Postman."
     ),
     tags=["Transactions"],
 )
 def list_all_transactions(
-    limit: int = Query(default=100, ge=1, le=1000, description="Max records to return (1-1000)"),
+    limit: Optional[int] = Query(default=None, ge=1, description="Optional max records to return (default: no limit)"),
     offset: int = Query(default=0, ge=0, description="Number of records to skip"),
     customer_id: Optional[str] = Query(default=None, description="Filter by customer ID"),
 ) -> dict:
@@ -242,11 +243,16 @@ def list_all_transactions(
         all_txns = [t for t in all_txns if t.customer_id == customer_id]
 
     total = len(all_txns)
-    page = all_txns[offset : offset + limit]
+
+    # No limit given -> return everything from the offset onward.
+    if limit is None:
+        page = all_txns[offset:]
+    else:
+        page = all_txns[offset : offset + limit]
 
     return {
         "total": total,
-        "limit": limit,
+        "limit": limit,          # null means "all"
         "offset": offset,
         "returned": len(page),
         "transactions": [t.model_dump() for t in page],
