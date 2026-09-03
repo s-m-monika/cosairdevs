@@ -1,34 +1,35 @@
 import pandas as pd
 import os
 
-DATA_FOLDER = "data/seed"
+DATA_FOLDER = "data/seed/FRAB_DEMO_READY_DATASET"
 
-files = {
-    "alerts.csv (-> ACCOUNTS)": "alerts.csv",
-    "behaviour_baseline.csv (-> ALERTS)": "behaviour_baseline.csv",
-    "beneficiaries.csv (-> BEHAVIOUR BASELINE)": "beneficiaries.csv",
-    "cases.csv (-> BENEFICIARIES)": "cases.csv",
-    "customers.csv (-> CASES)": "customers.csv",
-    "demo_runs.csv (-> CUSTOMERS)": "demo_runs.csv",
-    "kyc_profiles.csv (-> SCENARIOS)": "kyc_profiles.csv",
-    "merchants.csv (-> KYC PROFILES)": "merchants.csv",
-    "README.txt (-> MERCHANTS)": "README.txt",
-    "simulator_feed.csv (-> DOCUMENTATION)": "simulator_feed.csv",
-    "transactions.csv (-> TRANSACTIONS)": "transactions.csv",
-}
+files = [
+    "accounts.csv",
+    "alerts.csv",
+    "behaviour_baseline.csv",
+    "beneficiaries.csv",
+    "cases.csv",
+    "customers.csv",
+    "demo_runs.csv",
+    "kyc_profiles.csv",
+    "merchants.csv",
+    "README.txt",
+    "simulator_feed.csv",
+    "transactions.csv",
+]
 
-for label, filename in files.items():
+for filename in files:
     path = os.path.join(DATA_FOLDER, filename)
 
     print("\n" + "=" * 60)
-    print(f"{label}")
+    print(filename)
     print("=" * 60)
 
     if not os.path.exists(path):
         print("  FILE NOT FOUND")
         continue
 
-    if filename == "simulator_feed.csv":
+    if filename in ("README.txt", "simulator_feed.csv"):
         with open(path, encoding="utf-8") as f:
             lines = f.readlines()
         total_rows = len(lines)

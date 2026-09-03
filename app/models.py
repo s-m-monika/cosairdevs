@@ -68,15 +68,21 @@ class DestinationType(str, Enum):
 
 class Transaction(BaseModel):
     transaction_id: str
-    stream_order: int = 0
-    emit_delay_ms: int = 500
+    step: int = 0
     type: str
     amount: float
+    nameOrig: str = ""
+    oldbalanceOrg: float = 0.0
+    newbalanceOrig: float = 0.0
+    nameDest: str
+    oldbalanceDest: float = 0.0
+    newbalanceDest: float = 0.0
+    isFraud: int = 0
+    isFlaggedFraud: int = 0
     customer_id: str
     account_id: str
-    nameDest: str
-    destination_type: str
     event_time: str
+    destination_type: str
     is_scenario_trigger: bool = False
     device_id: Optional[str] = None
 

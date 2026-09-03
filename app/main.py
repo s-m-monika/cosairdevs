@@ -219,6 +219,40 @@ def get_investigation(alert_id: str) -> InvestigationContext:
 # returned.  This is also the endpoint the simulator calls.
 
 @app.get(
+    "/transactions/all",
+    summary="List transactions (paginated)",
+    description=(
+        "Returns transactions from the dataset, newest first. "
+        "The dataset has ~9,991 transactions, so results are PAGINATED. "
+        "Use `limit` (default 100, max 1000) and `offset` to page through. "
+        "Optionally filter by `customer_id`. "
+        "The response includes total count and pagination metadata."
+    ),
+    tags=["Transactions"],
+)
+def list_all_transactions(
+    limit: int = Query(default=100, ge=1, le=1000, description="Max records to return (1-1000)"),
+    offset: int = Query(default=0, ge=0, description="Number of records to skip"),
+    customer_id: Optional[str] = Query(default=None, description="Filter by customer ID"),
+) -> dict:
+    store = get_store()
+    all_txns = store.get_all_transactions()
+
+    if customer_id:
+        all_txns = [t for t in all_txns if t.customer_id == customer_id]
+
+    total = len(all_txns)
+    page = all_txns[offset : offset + limit]
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "returned": len(page),
+        "transactions": [t.model_dump() for t in page],
+    }
+
+@app.get(
     "/transactions",
     summary="Submit a transaction for rule-engine evaluation",
     description=(
@@ -264,13 +298,19 @@ async def submit_transaction(
 
     txn = Transaction(
         transaction_id=txn_id,
-        stream_order=stream_order,
-        emit_delay_ms=emit_delay_ms,
+        step=0,
         type=type,
         amount=amount,
+        nameOrig=customer_id,
+        oldbalanceOrg=0,
+        newbalanceOrg=0,
+        nameDest=nameDest,
+        oldbalanceDest=0,
+        newbalanceDest=0,
+        isFraud=0,
+        isFlaggedFraud=0,
         customer_id=customer_id,
         account_id=account_id,
-        nameDest=nameDest,
         destination_type=destination_type,
         event_time=ts,
         is_scenario_trigger=is_scenario_trigger,

@@ -65,8 +65,7 @@ class TestCSVLoading:
         assert len(store.cases) > 0
 
     def test_merchants_loaded(self, store: DataStore):
-        # No separate merchants CSV exists in this dataset; the store is intentionally empty.
-        assert isinstance(store.merchants, dict)
+        assert len(store.merchants) > 0
 
     def test_devices_assigned(self, store: DataStore):
         assert len(store.devices) > 0
@@ -127,6 +126,13 @@ class TestTransactionLookup:
         if len(txns) >= 2:
             assert txns[0].event_time >= txns[1].event_time
 
+    def test_get_all_transactions(self, store: DataStore):
+        txns = store.get_all_transactions()
+        assert len(txns) == len(store.transactions)
+        assert len(txns) > 1000
+        if len(txns) >= 2:
+            assert txns[0].event_time >= txns[1].event_time
+
 
 class TestBehaviourLookup:
     def test_get_behaviour(self, store: DataStore):
@@ -151,8 +157,7 @@ class TestAnomalyDetector:
         assert behaviour is not None
         txn = Transaction(
             transaction_id="TXTEST001",
-            stream_order=0,
-            emit_delay_ms=500,
+            step=0,
             type="TRANSFER",
             amount=behaviour.avg_transaction * 15,
             customer_id="C009000137",
@@ -170,8 +175,7 @@ class TestAnomalyDetector:
     def test_new_device_anomaly(self, store: DataStore, detector: AnomalyDetector):
         txn = Transaction(
             transaction_id="TXTEST002",
-            stream_order=0,
-            emit_delay_ms=500,
+            step=0,
             type="TRANSFER",
             amount=5000,
             customer_id="C009000137",
@@ -189,8 +193,7 @@ class TestAnomalyDetector:
     def test_new_beneficiary_anomaly(self, store: DataStore, detector: AnomalyDetector):
         txn = Transaction(
             transaction_id="TXTEST003",
-            stream_order=0,
-            emit_delay_ms=500,
+            step=0,
             type="TRANSFER",
             amount=5000,
             customer_id="C009000137",
@@ -209,8 +212,7 @@ class TestAnomalyDetector:
         assert behaviour is not None
         txn = Transaction(
             transaction_id="TXTEST004",
-            stream_order=0,
-            emit_delay_ms=500,
+            step=0,
             type="TRANSFER",
             amount=behaviour.avg_transaction * 12,
             customer_id="C009001507",
@@ -230,8 +232,7 @@ class TestAnomalyDetector:
         behaviour = store.get_behaviour("C009001507")
         txn = Transaction(
             transaction_id="TXTEST005",
-            stream_order=0,
-            emit_delay_ms=500,
+            step=0,
             type="TRANSFER",
             amount=behaviour.avg_transaction * 12,
             customer_id="C009001507",
@@ -253,8 +254,7 @@ class TestAnomalyDetector:
         behaviour = store.get_behaviour("C009000137")
         txn = Transaction(
             transaction_id="TXTEST006",
-            stream_order=0,
-            emit_delay_ms=500,
+            step=0,
             type="TRANSFER",
             amount=behaviour.avg_transaction * 0.5,
             customer_id="C009000137",
@@ -281,8 +281,7 @@ class TestKYCBehaviourMismatch:
             pytest.skip("No student KYC found")
         txn = Transaction(
             transaction_id="TXTEST007",
-            stream_order=0,
-            emit_delay_ms=500,
+            step=0,
             type="TRANSFER",
             amount=500000,
             customer_id=student_kyc.customer_id,

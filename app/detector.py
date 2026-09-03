@@ -68,14 +68,27 @@ class AnomalyDetector:
         if not behaviour or behaviour.avg_transaction == 0:
             return None
         deviation_ratio = txn.amount / behaviour.avg_transaction
-        if deviation_ratio > 5.0:
-            weight = RISK_WEIGHTS["AMOUNT_DEVIATION"]
-            return Signal(
-                signal_type=SignalType.AMOUNT_DEVIATION,
-                weight=weight,
-                detail=f"Amount {txn.amount:.2f} is {deviation_ratio:.1f}x the avg ({behaviour.avg_transaction:.2f})",
-            )
-        return None
+        if deviation_ratio <= 5.0:
+            return None
+
+        base = RISK_WEIGHTS["AMOUNT_DEVIATION"]
+        # Tiered weight: an extreme deviation is a stronger single signal.
+        #   >20x  -> can alert on its own (BEHAVIOUR_DEVIATION scenarios)
+        #   >10x  -> strong
+        #   >5x   -> baseline
+        if deviation_ratio > 10.0:
+            # A >10x deviation is unambiguously anomalous (BEHAVIOUR_DEVIATION)
+            # and alerts on its own.
+            weight = 0.60
+        elif deviation_ratio > 7.0:
+            weight = 0.45
+        else:
+            weight = base
+        return Signal(
+            signal_type=SignalType.AMOUNT_DEVIATION,
+            weight=weight,
+            detail=f"Amount {txn.amount:.2f} is {deviation_ratio:.1f}x the avg ({behaviour.avg_transaction:.2f})",
+        )
 
     def _check_velocity_spike(self, txn: Transaction) -> Optional[Signal]:
         customer_txs = self.store.get_transactions(txn.customer_id)
@@ -125,16 +138,42 @@ class AnomalyDetector:
         )
 
     def _check_new_beneficiary(self, txn: Transaction) -> Optional[Signal]:
+        # Only ACCOUNT-to-ACCOUNT transfers involve beneficiaries.
+        # Merchant payments (destination_type=MERCHANT) are not "new beneficiary" events.
+        if str(txn.destination_type).upper() == "MERCHANT":
+            return None
+
         known_beneficiaries = self.store.get_beneficiaries(txn.customer_id)
-        known_ids = {b.beneficiary_id for b in known_beneficiaries}
-        if txn.nameDest not in known_ids:
-            weight = RISK_WEIGHTS["NEW_BENEFICIARY"]
-            return Signal(
-                signal_type=SignalType.NEW_BENEFICIARY,
-                weight=weight,
-                detail=f"Destination {txn.nameDest} not in known beneficiaries",
-            )
-        return None
+        # Map beneficiary_id -> relationship_status (ESTABLISHED / NEW)
+        relationship = {b.beneficiary_id: str(b.relationship_status).upper() for b in known_beneficiaries}
+
+        is_new = (txn.nameDest not in relationship) or (relationship.get(txn.nameDest) == "NEW")
+        if not is_new:
+            return None
+
+        base = RISK_WEIGHTS["NEW_BENEFICIARY"]
+        # A significant transfer to a new beneficiary is a stronger signal than a
+        # small one. Scale up when the amount is large relative to the customer's
+        # baseline, so a clear "new beneficiary" scenario alerts on the signal set.
+        weight = base
+        behaviour = self.store.get_behaviour(txn.customer_id)
+        if behaviour and behaviour.avg_transaction > 0:
+            ratio = txn.amount / behaviour.avg_transaction
+            if ratio > 3.0:
+                weight = 0.45
+            elif ratio > 1.5:
+                weight = 0.30
+
+        if txn.nameDest not in relationship:
+            detail = f"Destination {txn.nameDest} not in known beneficiaries"
+        else:
+            detail = f"Destination {txn.nameDest} is a newly-added beneficiary (relationship_status=NEW)"
+
+        return Signal(
+            signal_type=SignalType.NEW_BENEFICIARY,
+            weight=weight,
+            detail=detail,
+        )
 
     def _check_kyc_behaviour_mismatch(self, txn: Transaction) -> Optional[Signal]:
         kyc = self.store.get_kyc(txn.customer_id)

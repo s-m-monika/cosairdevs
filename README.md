@@ -344,6 +344,7 @@ All endpoints are **GET only**.
 | GET | `/cases` | List all cases |
 | GET | `/cases/{case_id}` | Single case |
 | GET | `/investigation/{alert_id}` | Consolidated investigation context |
+| GET | `/transactions/all` | List all loaded transactions, newest first |
 | GET | `/transactions` | Submit transaction (all fields as query params) |
 | WS  | `/ws/alerts` | Real-time alert feed |
 | GET | `/docs` | Interactive API documentation (Swagger UI) |

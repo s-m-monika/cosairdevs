@@ -89,9 +89,13 @@ class DataStore:
             self.accounts[a.account_id] = a
 
     def _load_merchants(self) -> None:
-        # merchants.csv actually holds KYC profiles — there is no separate
-        # merchant file in this dataset.  Load as a stub so the store key exists.
-        self.merchants = {}
+        df = pd.read_csv(self._csv_path("merchants"))
+        for _, row in df.iterrows():
+            m = Merchant(
+                merchant_id=str(row["merchant_id"]).strip(),
+                status=str(row.get("status", "ACTIVE")).strip(),
+            )
+            self.merchants[m.merchant_id] = m
 
     def _load_kyc_profiles(self) -> None:
         df = pd.read_csv(self._csv_path("kyc_profiles"))
@@ -142,15 +146,21 @@ class DataStore:
         for _, row in df.iterrows():
             t = Transaction(
                 transaction_id=str(row["transaction_id"]).strip(),
-                stream_order=int(row["stream_order"]),
-                emit_delay_ms=int(row["emit_delay_ms"]),
+                step=int(row.get("step", 0)),
                 type=str(row["type"]).strip(),
                 amount=float(row["amount"]),
+                nameOrig=str(row.get("nameOrig", row.get("customer_id", ""))).strip(),
+                oldbalanceOrg=float(row.get("oldbalanceOrg", 0)),
+                newbalanceOrig=float(row.get("newbalanceOrig", 0)),
+                nameDest=str(row["nameDest"]).strip(),
+                oldbalanceDest=float(row.get("oldbalanceDest", 0)),
+                newbalanceDest=float(row.get("newbalanceDest", 0)),
+                isFraud=int(row.get("isFraud", 0)),
+                isFlaggedFraud=int(row.get("isFlaggedFraud", 0)),
                 customer_id=str(row["customer_id"]).strip(),
                 account_id=str(row["account_id"]).strip(),
-                nameDest=str(row["nameDest"]).strip(),
-                destination_type=str(row["destination_type"]).strip(),
                 event_time=str(row["event_time"]).strip(),
+                destination_type=str(row["destination_type"]).strip(),
                 is_scenario_trigger=(
                     str(row.get("is_scenario_trigger", "FALSE")).strip().upper() == "TRUE"
                 ),
@@ -250,6 +260,10 @@ class DataStore:
             key=lambda t: t.event_time,
             reverse=True,
         )
+
+    def get_all_transactions(self) -> list[Transaction]:
+        """All loaded transactions, newest first."""
+        return sorted(self.transactions.values(), key=lambda t: t.event_time, reverse=True)
 
     def get_transaction(self, transaction_id: str) -> Optional[Transaction]:
         return self.transactions.get(transaction_id)

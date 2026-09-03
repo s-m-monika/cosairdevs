@@ -52,9 +52,12 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data" / "seed"
+DATA_DIR = ROOT / "data" / "seed" / "FRAB_DEMO_READY_DATASET"
+# The simulator feed is the full ordered transaction stream.
 FEED_FILE = DATA_DIR / "transactions.csv"
-SCENARIOS_FILE = DATA_DIR / "kyc_profiles.csv"   # actually the scenarios table
+# Scenario definitions (scenario_id, trigger_transaction_id, customer_id)
+# live in demo_runs.csv in the finalized dataset.
+SCENARIOS_FILE = DATA_DIR / "demo_runs.csv"
 
 # Map SCN label → trigger transaction ID (from kyc_profiles.csv / scenarios)
 # Built dynamically at startup from the CSV; this dict is a fallback.
@@ -103,13 +106,20 @@ def _load_scenarios() -> tuple[dict[str, str], dict[str, str]]:
 
 
 def _load_feed() -> list[dict]:
-    """Load all rows from simulator_feed.csv sorted by stream_order."""
+    """Load all transaction rows, ordered by 'step' (chronological stream order)."""
     rows: list[dict] = []
     with open(FEED_FILE, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            rows.append({k.strip(): v.strip() for k, v in row.items()})
-    rows.sort(key=lambda r: int(r.get("stream_order", 0)))
+            rows.append({k.strip(): (v.strip() if v is not None else "") for k, v in row.items()})
+
+    def _order(r: dict) -> int:
+        try:
+            return int(r.get("step", 0) or 0)
+        except (ValueError, TypeError):
+            return 0
+
+    rows.sort(key=_order)
     return rows
 
 
@@ -154,9 +164,9 @@ def _select_rows(
         cid = r.get("customer_id", "")
         dest = r.get("nameDest", "")
         tx_id = r.get("transaction_id", "")
-        is_trigger = r.get("is_scenario_trigger", "FALSE").upper() == "TRUE"
+        is_trigger = tx_id == trigger_tx
 
-        if tx_id == trigger_tx:
+        if is_trigger:
             selected.append(r)
         elif cid == primary_customer:
             selected.append(r)
@@ -164,14 +174,20 @@ def _select_rows(
             # Supporting context row (another customer sending to the same dest)
             selected.append(r)
 
-    # Keep stream_order sort
-    selected.sort(key=lambda r: int(r.get("stream_order", 0)))
+    def _order(r: dict) -> int:
+        try:
+            return int(r.get("step", 0) or 0)
+        except (ValueError, TypeError):
+            return 0
+
+    selected.sort(key=_order)
     return selected
 
 
-def _build_url(base_url: str, row: dict) -> str:
+def _build_url(base_url: str, row: dict, trigger_tx: str | None = None) -> str:
     """Construct the GET /transactions URL from a feed row."""
     base = base_url.rstrip("/")
+    is_trigger = trigger_tx is not None and row["transaction_id"] == trigger_tx
     params = {
         "transaction_id": row["transaction_id"],
         "type": row["type"],
@@ -179,11 +195,10 @@ def _build_url(base_url: str, row: dict) -> str:
         "customer_id": row["customer_id"],
         "account_id": row["account_id"],
         "nameDest": row["nameDest"],
-        "destination_type": row["destination_type"],
-        "event_time": row["event_time"],
-        "is_scenario_trigger": row.get("is_scenario_trigger", "false").lower(),
-        "stream_order": row.get("stream_order", "0"),
-        "emit_delay_ms": row.get("emit_delay_ms", "500"),
+        "destination_type": row.get("destination_type", "ACCOUNT"),
+        "event_time": row.get("event_time", ""),
+        "is_scenario_trigger": "true" if is_trigger else "false",
+        "stream_order": row.get("step", "0"),
     }
     return f"{base}/transactions?{urllib.parse.urlencode(params)}"
 
@@ -206,12 +221,12 @@ def _call(url: str) -> tuple[int, dict]:
         return 0, {"error": str(exc)}
 
 
-def _print_result(row: dict, status: int, resp: dict) -> None:
+def _print_result(row: dict, status: int, resp: dict, trigger_tx: str | None = None) -> None:
     tx_id = row["transaction_id"]
     amount = row["amount"]
     customer = row["customer_id"]
-    is_trigger = row.get("is_scenario_trigger", "FALSE").upper() == "TRUE"
-    marker = "★ TRIGGER" if is_trigger else "  context"
+    is_trigger = trigger_tx is not None and tx_id == trigger_tx
+    marker = "* TRIGGER" if is_trigger else "  context"
 
     if status in (200, 201):
         alert_id = resp.get("alert_id")
@@ -220,12 +235,12 @@ def _print_result(row: dict, status: int, resp: dict) -> None:
         if alert_flag and alert_id:
             print(
                 f"  [PASS] {marker} {tx_id} | {customer} | {amount}"
-                f" → ALERT {alert_id} [{severity}]"
+                f" -> ALERT {alert_id} [{severity}]"
             )
         else:
-            print(f"  [PASS] {marker} {tx_id} | {customer} | {amount} → accepted (no alert)")
+            print(f"  [PASS] {marker} {tx_id} | {customer} | {amount} -> accepted (no alert)")
     else:
-        print(f"  [FAIL] {marker} {tx_id} | {customer} | {amount} → HTTP {status}: {resp}")
+        print(f"  [FAIL] {marker} {tx_id} | {customer} | {amount} -> HTTP {status}: {resp}")
 
 
 def run(
@@ -237,6 +252,8 @@ def run(
     trigger_map, customer_map = _load_scenarios()
     all_rows = _load_feed()
     rows = _select_rows(all_rows, scenario_id, trigger_map, customer_map)
+
+    trigger_tx = trigger_map.get(scenario_id.upper()) if scenario_id else None
 
     label = scenario_id or "ALL"
     print(f"\n{'='*60}")
@@ -250,14 +267,14 @@ def run(
     passed = failed = alerts = 0
 
     for i, row in enumerate(rows):
-        url = _build_url(base_url, row)
+        url = _build_url(base_url, row, trigger_tx)
 
         if dry_run:
-            print(f"  [DRY-RUN] {row['transaction_id']} → {url}")
+            print(f"  [DRY-RUN] {row['transaction_id']} -> {url}")
             continue
 
         status, resp = _call(url)
-        _print_result(row, status, resp)
+        _print_result(row, status, resp, trigger_tx)
 
         if status in (200, 201):
             passed += 1

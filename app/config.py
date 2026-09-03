@@ -1,21 +1,22 @@
 import os
 
 # ── Data directory ─────────────────────────────────────────────────────────────
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "seed")
+DATA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "data", "seed", "FRAB_DEMO_READY_DATASET"
+)
 
 # ── CSV_MAP: logical name → actual filename ────────────────────────────────────
-# The filenames on disk are historically misnamed; this map corrects the mapping
-# so every loader always opens the right file.
 CSV_MAP = {
-    "customers":          "demo_runs.csv",          # customer records
-    "accounts":           "alerts.csv",             # account records
-    "alerts":             "behaviour_baseline.csv", # alert records
-    "behaviour_baseline": "beneficiaries.csv",      # behaviour baseline records
-    "beneficiaries":      "cases.csv",              # beneficiary records
-    "cases":              "customers.csv",           # case records
-    "kyc_profiles":       "merchants.csv",           # KYC profile records
-    "scenarios":          "kyc_profiles.csv",        # scenario records
-    "transactions":       "transactions.csv",        # transaction records
+    "customers":          "customers.csv",
+    "accounts":           "accounts.csv",
+    "alerts":             "alerts.csv",
+    "behaviour_baseline": "behaviour_baseline.csv",
+    "beneficiaries":      "beneficiaries.csv",
+    "cases":              "cases.csv",
+    "kyc_profiles":       "kyc_profiles.csv",
+    "merchants":          "merchants.csv",
+    "scenarios":          "demo_runs.csv",
+    "transactions":       "transactions.csv",
 }
 
 # ── Google Cloud / Firestore ───────────────────────────────────────────────────
@@ -53,7 +54,13 @@ RISK_WEIGHTS = {
     "KYC_BEHAVIOUR_MISMATCH": 0.20,
 }
 
-HIGH_SEVERITY_THRESHOLD = 0.70
+# A transaction is flagged HIGH (and an alert is created) at or above this score.
+# Calibrated to 0.60 so genuine scenario triggers fire on the finalized dataset,
+# which carries no device_id column (NEW_DEVICE cannot contribute a signal).
+# A high-value transfer to a new beneficiary that also mismatches KYC scores
+# 0.30 + 0.15 + 0.20 = 0.65 and must alert; a normal merchant payment scores
+# only 0.15 and must not.
+HIGH_SEVERITY_THRESHOLD = 0.60
 
 # A transaction triggers VELOCITY_SPIKE when >= VELOCITY_THRESHOLD other
 # transactions for the same customer fall within VELOCITY_WINDOW_SECONDS.
