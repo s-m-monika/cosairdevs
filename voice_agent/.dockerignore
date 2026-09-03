@@ -1,0 +1,9 @@
+# Don't copy build/config files into the package subfolder
+Dockerfile
+.dockerignore
+.env
+.env.example
+README.md
+__pycache__/
+*.pyc
+*.pyo
