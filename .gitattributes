@@ -1,0 +1,12 @@
+# Normalise line endings: checkout as-is on Windows, LF in the repo
+* text=auto eol=lf
+
+# Force LF for files that must run on Linux (Cloud Run)
+*.py     text eol=lf
+*.sh     text eol=lf
+*.txt    text eol=lf
+*.csv    text eol=lf
+*.md     text eol=lf
+*.json   text eol=lf
+Dockerfile text eol=lf
+.env.example text eol=lf
