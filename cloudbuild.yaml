@@ -1,19 +1,22 @@
 steps:
-  # 1. Build Docker image
+  # ── Step 0: Build Docker image ─────────────────────────────────────────────
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
       - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank:$COMMIT_SHA'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank:latest'
       - '.'
 
-  # 2. Push image to Artifact Registry
+  # ── Step 1: Push image to Artifact Registry ────────────────────────────────
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank:$COMMIT_SHA'
+      - '--all-tags'
+      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank'
 
-  # 3. Deploy to Cloud Run
+  # ── Step 2: Deploy to Cloud Run ────────────────────────────────────────────
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
@@ -27,6 +30,12 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID,FIRESTORE_DATABASE=(default),USE_FIRESTORE=true'
 
 images:
   - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank:$COMMIT_SHA'
+  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
