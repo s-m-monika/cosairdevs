@@ -1,5 +1,5 @@
 steps:
-  # ── Step 0: Build Docker image ─────────────────────────────────────────────
+  # Step 0: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -9,14 +9,14 @@ steps:
       - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank:latest'
       - '.'
 
-  # ── Step 1: Push image to Artifact Registry ────────────────────────────────
+  # Step 1: Push both tags to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
       - '--all-tags'
       - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank'
 
-  # ── Step 2: Deploy to Cloud Run ────────────────────────────────────────────
+  # Step 2: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
