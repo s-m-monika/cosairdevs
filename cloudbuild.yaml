@@ -30,8 +30,10 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      # Use ^:^ delimiter because CORS_ALLOWED_ORIGINS itself contains commas.
+      # This lets us pass a comma-separated origin list as a single env var value.
       - '--set-env-vars'
-      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID,FIRESTORE_DATABASE=(default),USE_FIRESTORE=true'
+      - '^:^GOOGLE_CLOUD_PROJECT=$PROJECT_ID:FIRESTORE_DATABASE=(default):USE_FIRESTORE=true:CORS_ALLOWED_ORIGINS=https://frab-frontend-200002205070.asia-south1.run.app,http://localhost:3000,http://localhost:5173,http://localhost:8080'
 
 images:
   - 'asia-south1-docker.pkg.dev/$PROJECT_ID/frab-repo/synthetic-bank:$COMMIT_SHA'

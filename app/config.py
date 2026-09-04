@@ -41,9 +41,14 @@ PORT = int(os.environ.get("PORT", "8000"))
 #   CORS_ALLOWED_ORIGINS=https://my-frontend.run.app,http://localhost:8080
 _raw_origins = os.environ.get(
     "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080",
+    "http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080,"
+    "https://frab-frontend-200002205070.asia-south1.run.app",
 )
-CORS_ALLOWED_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+# Normalise: strip whitespace AND any trailing slash (browsers send the Origin
+# header without a trailing slash, so "https://x.run.app/" would never match).
+CORS_ALLOWED_ORIGINS: list[str] = [
+    o.strip().rstrip("/") for o in _raw_origins.split(",") if o.strip()
+]
 
 # ── Rule-engine weights ────────────────────────────────────────────────────────
 RISK_WEIGHTS = {
